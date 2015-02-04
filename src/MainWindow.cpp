@@ -721,7 +721,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                     copyRowToClipboard(treeview,currentIndex.row());
             }
             return true;
-        } else if ( (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) && keyEvent->modifiers() == Qt::NoModifier ) {
+        } else if ( (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) && (keyEvent->modifiers() == Qt::NoModifier || keyEvent->modifiers() ==Qt::KeypadModifier) ) {
             ui->searchButton->click();
             return true;
         }
