@@ -85,9 +85,9 @@ win32 {
 }
 
 win32{
- DEFINES += Z1188_CURSOR_HACK
- SOURCES += src/MyHeaderView.cpp
- HEADERS  +=   src/MyHeaderView.h
+ #DEFINES += Z1188_CURSOR_HACK
+ #SOURCES += src/MyHeaderView.cpp
+ #HEADERS  +=   src/MyHeaderView.h
 }
 
 ICON = src/icons/z1188.icns
