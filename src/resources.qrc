@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/">
+        <file>style.css</file>
+        <file>icons/checkbox_checked.png</file>
+        <file>icons/checkbox_checked_hover.png</file>
+        <file>icons/checkbox_unchecked.png</file>
+        <file>icons/checkbox_unchecked_hover.png</file>
+        <file>icons/downarrow.png</file>
+        <file>icons/dropdown.png</file>
+        <file>icons/google_maps_icon.png</file>
+        <file>icons/leftarrow.png</file>
+        <file>icons/loader.mng</file>
+        <file>icons/openstreetmap_icon.ico</file>
+        <file>icons/point_md_icon.ico</file>
+        <file>icons/rightarrow.png</file>
+        <file>icons/settings_icon.png</file>
+        <file>icons/settings_icon_hover.png</file>
+        <file>icons/uparrow.png</file>
+        <file>export_template.html</file>
+        <file>icons/appicon.ico</file>
+    </qresource>
+</RCC>

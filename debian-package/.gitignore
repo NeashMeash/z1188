@@ -1,0 +1,4 @@
+z1188/usr/bin/*
+z1188/usr/share/z1188/*
+z1188/DEBIAN/control
+*.deb

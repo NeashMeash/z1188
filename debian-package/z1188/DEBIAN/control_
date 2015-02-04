@@ -1,0 +1,10 @@
+Package: z1188
+Version: 1.0
+Section: misc
+Architecture: YOUR_ARCHITECTURE
+Installed-Size: 164000
+Maintainer: Neash-Meash <neash.meash@gmail.com>
+Description: Phone Book of Moldova
+ Find adresses or phone numbers for private people or professionals everywhere in Moldova.
+Depends: libqt5widgets5,libqt5sql5,libqt5sql5-sqlite,libqt5opengl5,libqt5gui5,libqt5core5a,qt5-image-formats-plugins
+
