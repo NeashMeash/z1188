@@ -50,3 +50,6 @@ sudo apt-get install qt5-image-formats-plugins
 Другие ОС:
 
 Можно установить Qt 5 с помощью инсталлятора (он содержит QtCreator) и собирать с помощью него.
+
+Сама база данных для самостоятельной сборки:
+https://drive.google.com/file/d/0B4cy9KBf7lsMSW83dEhfdXBPRkk/view?usp=sharing
