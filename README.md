@@ -39,7 +39,9 @@ Ubuntu 14.04:
 sudo apt-get install qt5-default
 
 Зайдите в каталог проекта и выполните команды:
+
 qmake CONFIG+=release
+
 make
 
 Дополнительно установите:
