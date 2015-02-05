@@ -187,8 +187,9 @@ int HomeUsersModel::rowCount(const QModelIndex &parent) const
 void HomeUsersModel::clear()
 {
     // QSqlQueryModel::clear();
-    //nameCache.clear();
+
     removeRows(0,rowCount());
+    nameCache.clear();
     nameCache.resize(500);
    // emit rowsRemoved(index(0,0),0,QSqlQueryModel::rowCount());
 //    emit

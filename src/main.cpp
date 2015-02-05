@@ -67,6 +67,7 @@ void normalizeDb() {
 
 int main(int argc, char *argv[])
 {
+    SetForegroundWindow(0);
 
 
 #ifdef Q_OS_WIN32
