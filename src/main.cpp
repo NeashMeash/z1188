@@ -67,7 +67,6 @@ void normalizeDb() {
 
 int main(int argc, char *argv[])
 {
-    SetForegroundWindow(0);
 
 
 #ifdef Q_OS_WIN32
@@ -100,6 +99,13 @@ int main(int argc, char *argv[])
 
 
     QString languagesPath = QApplication::applicationDirPath() + "/languages/";
+#ifdef Q_OS_OSX
+    QDir langDir = QDir(QApplication::applicationDirPath());
+    langDir.cdUp();
+    langDir.cd("Resources");
+    langDir.cd("Languages");
+    languagesPath = langDir.absolutePath();
+ #endif
 #ifndef Q_OS_WIN32
     if ( ! QDir(languagesPath).exists() ) {
         languagesPath = "/usr/share/z1188/languages/";
@@ -142,7 +148,15 @@ int main(int argc, char *argv[])
 #endif
 
     QString dbFileName =  "/db.db";
-    QString dbPath = QApplication::applicationDirPath()  + dbFileName ;
+    QString dbPath = QApplication::applicationDirPath() ;
+#ifdef Q_OS_OSX
+    QDir d = QDir(dbPath);
+    d.cdUp();
+    d.cd("Resources");
+    dbPath = d.absolutePath();
+ #endif
+            dbPath += dbFileName ;
+    //qDebug() << dbPath;
     if ( !QFile(dbPath).exists()) {
         dbPath = commonDataPath + dbFileName;
         if ( !QFile(dbPath).exists()) {
