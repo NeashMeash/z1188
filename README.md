@@ -10,7 +10,7 @@ z1188  –  Телефонный справочник Молдовы 2015 (Carte
 Скачать готовые сборки:
 
 Инсталлятор для Windows:
-https://drive.google.com/file/d/0B4cy9KBf7lsMSHQ4NEpnTXJvc1k/view?usp=sharing
+https://drive.google.com/file/d/0B4cy9KBf7lsMZW1laVptU0p1b3c/view?usp=sharing
 
 Пакет для Ubuntu 14.04 (64 bit):
 https://drive.google.com/file/d/0B4cy9KBf7lsMV1E4ejlaSVR2THM/view?usp=sharing
@@ -39,7 +39,9 @@ Ubuntu 14.04:
 sudo apt-get install qt5-default
 
 Зайдите в каталог проекта и выполните команды:
+
 qmake CONFIG+=release
+
 make
 
 Дополнительно установите:
