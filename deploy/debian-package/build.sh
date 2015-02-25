@@ -1,4 +1,4 @@
-AppVersion="1.0"
+AppVersion="1.1"
 
 # Get the machine Architecture
 Architecture=$(uname -m)
@@ -20,9 +20,10 @@ cp z1188/DEBIAN/control_ z1188/DEBIAN/control
  sed -i "s/YOUR_ARCHITECTURE/$Architecture/g" z1188/DEBIAN/control
 mkdir  -p ./z1188/usr/share/z1188/languages/
 mkdir -p ./z1188/usr/share/z1188/languages/qt
-cp -r ../languages/*.qm ./z1188/usr/share/z1188/languages/
-cp -r ../languages/qt/*.qm ./z1188/usr/share/z1188/languages/qt/
-cp ../build/linux/release/executable/z1188 ./z1188/usr/bin/
+cp -r ../../languages/*.qm ./z1188/usr/share/z1188/languages/
+cp -r ../../languages/qt/*.qm ./z1188/usr/share/z1188/languages/qt/
+cp ../../database/db.db ./z1188/usr/share/z1188/
+cp ../../build/linux/release/executable/z1188 ./z1188/usr/bin/
 if [ ! -f ./z1188/usr/bin/z1188 ]; then
     echo "Executable not found!"
     exit

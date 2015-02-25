@@ -4,9 +4,10 @@
 #include <QDebug>
 #include <QSqlError>
 #include <QRegularExpression>
+#include "Settings.h"
 #include "Utils.h"
 
-Worker::Worker(QSettings * settings)
+Worker::Worker(Settings * settings)
 {
     showOldStreetNames = true;
     this->settings = settings;
@@ -40,75 +41,98 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
 
         } else if ( phone.startsWith("+373") ) {
             numberWithCode = phone.mid(4);
+        } else if ( phone.length() > 6 ) {
+            numberWithCode = phone;
         }
     }
+    bool isMobile = false;
     if ( numberWithCode.startsWith("22") ) {
         code = 22;
         phone = numberWithCode.mid(2);
     } else if ( numberWithCode.length() >=3 ) {
-        code = numberWithCode.left(3).toInt();
-         phone = numberWithCode.mid(3);
+        if( numberWithCode.length() == 8 && ( numberWithCode.startsWith("7")
+                || numberWithCode.startsWith("6")
+                || numberWithCode.startsWith("8")
+                  || numberWithCode.startsWith("9")
+                 || numberWithCode.startsWith("5"))
+                ){
+            phone = numberWithCode;
+            isMobile = true;
+        } else {
+            code = numberWithCode.left(3).toInt();
+             phone = numberWithCode.mid(3);
+        }
     }
 
+    bool showStreetNamesInRomanian = settings->value(Settings::ShowStreetNamesInRomanian).toBool();
+
     QString errorString;
-       QSqlQuery query;
-       QString firstName;
-       QString middleName;
-       QString lastName = (name);
-       Utils::convertRoToEn(lastName);
-       if ( !searchCompanies ) {
-           QStringList names = lastName.split(" ");
-           lastName = names.first();
+    QSqlQuery query;
+    QString firstName;
+    QString middleName;
+    QString lastName = (name);
+    Utils::convertRoToEn(lastName);
+    if ( !searchCompanies ) {
+        QStringList names = lastName.split(" ");
+        lastName = names.first();
 
-           if ( names.count() > 1 ) {
-               firstName = names[1];
-           }
-           if ( names.count() > 2 ) {
-               middleName = names[2];
-           }
-       }
-       QString sql = "SELECT '',phone_prefix,phone,name||' '||COALESCE(first_name,'')||' '||COALESCE(middle_name,''),"
-                     "(COALESCE(streets.name_"+language+",streets.name_ro)";
-               if (showOldStreetNames ) {
-                sql+=      " || (case when old_name is not null then (' ("+tr("old")+" '||old_name||')') else '' end )";
-                }
-        sql+=        " ||' '||street_types.name_"+language+"),";
-       sql+=
-                     " house_number || (case when house_block is null then '' else ('/'||house_block) end),"
-                       "apartment ";
-       if ( searchCompanies || phone.length() ) {
-        sql+= " , sector_name, subdivision_name";
-       } else {
-          sql+= " ,'', ''";
-       }
-       sql += ", COALESCE(locations.name_"+ language +",locations.name_ro),is_company,streets.lat,streets.lon,street_id,address_updated,streets.location_id as street_location_id,"
-                                                      " locations.id as location_id,phones.updated,regions.name_"+language
-               +", exact_block,location_types.name_"+language+", street_types.name_"+language+" , name, first_name, middle_name, acutes";
+        if ( names.count() > 1 ) {
+            firstName = names[1];
+        }
+        if ( names.count() > 2 ) {
+            middleName = names[2];
+        }
+    }
+    QString sql = "SELECT '',NULLIF(NULLIF(phone_prefix,1),0) as prefix,phone,name||' '||COALESCE(first_name,'')||' '||COALESCE(middle_name,''),";
+
+    if ( !showStreetNamesInRomanian && language == "ru" ) {
+        sql += "(COALESCE(streets.name_"+language+",streets.name_ro)";
+    } else {
+        sql += "(streets.name_ro";
+    }
+
+    if (showOldStreetNames ) {
+        sql+=      " || (case when old_name is not null then (' ("+tr("old")+" '||old_name||')') else '' end )";
+    }
+
+    sql+=        " ||' '||street_types.name_"+ ((showStreetNamesInRomanian && language == "ru")?"ro":language)+"),";
+
+    sql+=
+            " house_number || (case when house_block is null then '' else ('/'||house_block) end),"
+            "apartment ";
+    if ( searchCompanies || phone.length() ) {
+        sql+= " , sector_name, subdivision_name,employee_last_name||' '||COALESCE(employee_first_name,'')||' '||COALESCE(employee_middle_name,''),company_name,company_id";
+    } else {
+        sql+= " ,'', '','','',''";
+    }
+    sql += ", COALESCE(locations.name_"+ language +",locations.name_ro),is_company,streets.lat,streets.lon,street_id,address_updated,streets.location_id as street_location_id,"
+                                                   " locations.id as location_id,phones.updated,regions.name_"+language
+            +", exact_block,location_types.name_"+language+", street_types.name_"+ ((showStreetNamesInRomanian && language == "ru")?"ro":language)+" , name, first_name, middle_name, acutes,op,other,ap_suffix";
 
 
-               sql+=      " FROM phones "
-                      " left join streets on phones.street_id=streets.id  "
-                      " left join locations on coalesce(phones.location_id,streets.location_id)=locations.id "
-                          " left join regions on locations.region_id=regions.id"
-                          " left join location_types on locations.location_type=location_types.id"
-                          " left join street_types on street_type=street_types.id";
-       if ( searchCompanies || phone.length() ) {
-           sql += " LEFT JOIN companies on company_id = companies.id";
-       }
-       sql+=                 " WHERE 1=1  ";
-      /* QString sql = "SELECT * from phones where 1=1 ";*/
-       QMap<QString,QVariant> values;
+    sql+=      " FROM phones "
+               " left join streets on phones.street_id=streets.id  "
+               " left join locations on coalesce(phones.location_id,streets.location_id)=locations.id "
+               " left join regions on locations.region_id=regions.id"
+               " left join location_types on locations.location_type=location_types.id"
+               " left join street_types on street_type=street_types.id";
+    if ( searchCompanies || phone.length() ) {
+        sql += " LEFT JOIN companies on company_id = companies.id";
+    }
+    sql+=                 " WHERE 1=1  ";
+    /* QString sql = "SELECT * from phones where 1=1 ";*/
+    QMap<QString,QVariant> values;
 
-       if ( phone.length() ) {
-           sql += " AND phone= :phoneNumber ";
+    if ( phone.length() ) {
+        sql += " AND phone= :phoneNumber ";
 
-            //sql += " AND phones.phone="+QString::number(phone);
-           //
-       }
+        //sql += " AND phones.phone="+QString::number(phone);
+        //
+    }
 
-       if (code ) {
-           sql += " AND phone_prefix= :code ";
-       }
+    if (!isMobile && code ) {
+        sql += " AND phone_prefix= :code ";
+    }
 
        QRegularExpression russianRegexp(QString::fromUtf8("^[а-яА-Я\\- ]+$"));
        QString lastNameRussian;
@@ -118,9 +142,12 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
                lastNameRussian = Utils::transliterateRuToRo(lastName);
            }
            if (  searchCompanies || phone.length() ) {
-                sql += " AND  ( phones.name like '%'||:lastName||'%' COLLATE ROMANIAN ";
+                sql += " AND  ( phones.name like '%'||:lastName||'%' ";
                 if ( !lastNameRussian.isEmpty() ) {
                     sql += " OR  phones.name like '%'||:lastNameRussian||'%'";
+                }
+                if ( searchCompanies ) {
+                    sql += " OR  company_name like '%'||:lastName||'%' ";
                 }
                  sql += ") ";
 
@@ -155,13 +182,18 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
        }
 
        if ( regionId ) {
-           sql += " AND locations.region_id=:regionId ";
+           if ( regionId==99999 ) {
+                sql += " AND op = 2 ";
+
+           } else if ( phone.isEmpty() ){
+               sql += " AND locations.region_id=:regionId ";
+           }
 
        }
        if ( !street.isEmpty() ) {
            sql += " AND ( streets.name_ro like '%'||:street||'%' ";
            if ( language == "ru" ) {
-               bool showOldStreetNames = settings->value("showOldStreetNames", false).toBool();
+               bool showOldStreetNames = settings->value(Settings::ShowOldStreetNames).toBool();
                sql+= " OR  streets.name_ru like '%'||:street||'%' ";
                if ( showOldStreetNames ) {
                 sql+= " OR  streets.old_name like '%'||:street||'%' ";
@@ -182,16 +214,26 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
        }
 
        if ( phone.isEmpty() ) {
-             sql += " AND is_company=:isCompany ";
+             sql += " AND ( is_company=:isCompany ";
+             if (searchCompanies) {
+                 sql += " OR company_id is not null ";
+             }
+             sql+= ")";
        }
 
+	//TODO: искать по дефолтному префиксу региона если location не задан 
        if ( locationId ) {
            sql += " AND COALESCE(phones.location_id,streets.location_id)=:locationId ";
 
        }
-       if ( searchCompanies && regionId == 2  && phone.isEmpty() && street.isEmpty() && !houseNumber && houseBlock.isEmpty() &&
+       if ( (regionId == 2 || regionId == 99999 )  && phone.isEmpty() && street.isEmpty() && !houseNumber && houseBlock.isEmpty() &&
             !apartment && lastName.isEmpty() && middleName.isEmpty() && firstName.isEmpty()) {
-             sql+= " AND phone > 200000 ";
+           if ( searchCompanies )  {
+            sql+= " AND phone > 220000 ";
+           } else {
+                 sql+= " AND updated > 2004 and ( address_updated > 2004 or address_updated is null ) "
+                       "AND street_id is not null and exact_block=1 and name!='' ";
+           }
        }
 
       sql+= " LIMIT 100 ";
@@ -214,6 +256,7 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
        query.bindValue(":middleNameRussian",middleNameRussian);
        query.bindValue(":code",code);
 
+
        bool res = query.exec();
        if ( res ) {
            int flag = -1;
@@ -222,14 +265,23 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
                   while(query.next())
                       {
                       hasRows = true;
+                      // OMG
+                        int companyId = query.value("company_id").toInt();
+
+
                           int isRowCompany = query.value("is_company").toInt();
+                          if ( companyId && !isRowCompany) {
+                              flag = -1;
+                              break;
+                          }
+                          isRowCompany = isRowCompany || companyId;
                           if ( flag == -1 ) {
-                            flag = (int)isRowCompany;
-                          } else if ( flag != isRowCompany ) {
+                            flag = (int)(isRowCompany);
+                          } else if ( flag != isRowCompany  ) {
                                flag = -2;
                           }
                       }
-                  if (!hasRows  && phone.at(0) == '8' && regionId ) {
+                  /*if (!hasRows  && phone.at(0) == '8' && regionId ) {
                       QSqlQuery query2("SELECT code from regions where id="+QString::number(regionId));
                       query2.exec();
                           if ( query2.first() ) {
@@ -243,12 +295,13 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
                                       if ( phone.toInt() >= numberFrom && phone.toInt() <= numberTo ) {
                                           QString provider = query3.value("name").toString();
                                           errorString = tr("This number could not be found in the database because it belongs to operator %1.").arg(provider);
+                                        break;
                                       }
 
                                   }
                               }
                       }
-                  }
+                  }*/
               }
 
               if ( flag >= 0 ) {
@@ -258,6 +311,6 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
 
 
     }
-       emit resultReady(query, isCompany, errorString);
+       emit resultReady(query, isCompany, errorString,regionId == 99999);
 }
 

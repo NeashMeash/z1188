@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui sql
+QT       += core gui sql concurrent
 
 win32 {
 QT       += core-private
@@ -51,7 +51,10 @@ SOURCES += src/main.cpp\
     src/MainWindow.cpp \
     src/CompaniesModel.cpp \
     src/Utils.cpp \
-    src/MyProxyModel.cpp
+    src/MyProxyModel.cpp \
+    src/Settings.cpp \
+    src/AppProperties.cpp \
+    src/MyTreeView.cpp
 
 
 HEADERS  += \
@@ -62,7 +65,10 @@ HEADERS  += \
     src/MainWindow.h \
     src/CompaniesModel.h \
     src/Utils.h \
-    src/MyProxyModel.h
+    src/MyProxyModel.h \
+    src/Settings.h \
+    src/AppProperties.h \
+    src/MyTreeView.h
 
 FORMS    += src/mainwindow.ui \
     src/settingsdialog.ui

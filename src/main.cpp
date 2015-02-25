@@ -15,23 +15,30 @@
 #include <QDesktopServices>
 #include <QStandardPaths>
 #include <QDir>
+#include "Settings.h"
+#include <QSqlError>
 
 #ifdef Q_OS_WIN32
 #pragma comment(lib,"Shell32.lib")
 #include "shlobj.h"
 #endif
-
+#include "AppProperties.h"
+#include <iostream>
 
 void normalizeDb() {
+     QSqlDatabase db = QSqlDatabase::database();
+    if ( !db.isOpen() ) {
+        QMessageBox::critical(0,"z1188",QApplication::tr("Could not connect to database"));
+        return;
+    }
     QSqlQuery qq("PRAGMA synchronous = OFF;");
-    qq.exec();
     QSqlQuery qqq("PRAGMA journal_mode = MEMORY;");
-    qqq.exec();
 
     QSqlQuery q("SELECT  id,name, first_name, middle_name from phones where acutes is null");
-    q.exec();
-    if ( q.size() ) {
-        while (q.next() ) {
+
+    int i =0;
+    while (q.next() ) {
+
             QByteArray acutes;
             QString name = q.value("name").toString();
             Utils::normalizeStr(name,0,acutes);
@@ -55,14 +62,17 @@ void normalizeDb() {
                 q2.bindValue(":middleName", middleName.isEmpty()? QVariant() : middleName);
                 q2.bindValue(":id", q.value("id").toInt());
                 q2.bindValue(":acutes", acutes,QSql::In|QSql::Binary);
-
-                qDebug() << name << firstName << middleName << acutes.length()<<q.value("id").toInt()<<"\r\n";
-
+                if ( !q2.exec() ) {
+                   std::cout<<"Last error "<< q2.lastError().databaseText().toLocal8Bit().data()<<" "<<q2.size();
+                } else {
+                    i++;
+                }
             }
 
 
+
         }
-    }
+    std::cout<<"Updated "<<i<<" records"<<std::endl;
 }
 
 int main(int argc, char *argv[])
@@ -82,8 +92,8 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName("Neash-Meash");
     // QCoreApplication::setOrganizationDomain("mysoft.com");
     QCoreApplication::setApplicationName("z1188");
-    QSettings settings;
-    bool useSystemStyle = settings.value("useSystemDefaultTheme", false).toBool();
+    Settings settings;
+    bool useSystemStyle = settings.value(Settings::UseSystemDefaultTheme).toBool();
 
     if (!useSystemStyle) {
         QFile styleFile( ":/style.css" );
@@ -114,26 +124,26 @@ int main(int argc, char *argv[])
 
     QTranslator qtTranslator;
     QString qtTransPath = languagesPath+"qt";
-    QString defaultLocale = QLocale::system().name();
-    defaultLocale.truncate(defaultLocale.lastIndexOf('_'));
-    QString language = settings.value("language",defaultLocale).toString();
-    a.setProperty("currentLanguage", language);
-    a.setProperty("languagesPath", languagesPath);
-    a.setProperty("qtLanguagesPath", qtTransPath);
+
+    QString language = settings.value(Settings::Language).toString();
+    AppProperties* appProps = AppProperties::instance();
+    appProps->setCurrentLanguage(language);
+    appProps->setLanguagesPath(languagesPath);
+    appProps->setQtLanguagesPath(qtTransPath);
 
 
     qtTranslator.load("qt_" +language ,qtTransPath);
     a.installTranslator(&qtTranslator);
 
     QTranslator myappTranslator;
-    a.setProperty("translator",qVariantFromValue((void*)&myappTranslator));
-    a.setProperty("qtTranslator",qVariantFromValue((void*)&qtTranslator));
+    appProps->setTranslator(&myappTranslator);
+    appProps->setQtTranslator(&qtTranslator);
 
     myappTranslator.load("z1188_" + language, languagesPath);
     a.installTranslator(&myappTranslator);
 
-    bool showOldStreetNames = settings.value("showOldStreetNames", /*language == "ru"*/false).toBool();
-    settings.setValue("showOldStreetNames", showOldStreetNames);
+    bool showOldStreetNames = settings.value(Settings::ShowOldStreetNames).toBool();
+    settings.setValue(Settings::ShowOldStreetNames, showOldStreetNames);
     QString commonDataPath;
 #ifdef Q_OS_WIN32
     wchar_t szPath[MAX_PATH];
@@ -156,23 +166,42 @@ int main(int argc, char *argv[])
     dbPath = d.absolutePath();
  #endif
             dbPath += dbFileName ;
-    //qDebug() << dbPath;
+            bool doNormalize = false;
+            bool fileFromArg = false;
+
+    if ( argc > 1 ) {
+
+        for ( int i=0; i < argc; i++ ) {
+            if ( !strcmp(argv[i],"-f") && i < argc-1) {
+
+                dbPath = QString::fromLocal8Bit(argv[++i]);
+                fileFromArg = true;
+
+            } else if ( !strcmp(argv[i],"-n")) {
+                doNormalize = true;
+
+            }
+        }
+    }
+
     if ( !QFile(dbPath).exists()) {
         dbPath = commonDataPath + dbFileName;
-        if ( !QFile(dbPath).exists()) {
+        if ( fileFromArg || !QFile(dbPath).exists()) {
             QMessageBox::critical(0,"z1188",QApplication::tr("Cannot find database file %1").arg("db.db"));
             return 1;
         }
     }
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-
-    db.setDatabaseName(dbPath);
-    bool ok = db.open();
-    if (!ok ) {
-        QMessageBox::critical(0,"z1188",QApplication::tr("Could not connect to database"));
-        return 1;
+    // faster load
+    if (!doNormalize) {
+        db.setConnectOptions(QLatin1String("QSQLITE_OPEN_READONLY"));
     }
-    //normalizeDb();
+    db.setDatabaseName(dbPath);
+
+    if ( doNormalize ) {
+        normalizeDb();
+        return 0;
+    }
 
     MainWindow w(&settings);
     if ( w.hasFailed() ) {

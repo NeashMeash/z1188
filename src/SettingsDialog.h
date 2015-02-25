@@ -2,7 +2,7 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
-#include <QSettings>
+#include "Settings.h"
 
 namespace Ui {
 class SettingsDialog;
@@ -13,7 +13,7 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit SettingsDialog(QSettings* settings, QWidget *parent = 0);
+    explicit SettingsDialog(Settings *settings, QWidget *parent = 0);
     ~SettingsDialog();
 
 private slots:
@@ -21,7 +21,7 @@ private slots:
 
 private:
     Ui::SettingsDialog *ui;
-    QSettings *settings;
+    Settings *settings;
     bool initialUseSystemStyle;
     QString initialLanguage;
 };

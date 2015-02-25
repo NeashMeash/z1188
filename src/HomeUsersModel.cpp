@@ -13,10 +13,12 @@
 HomeUsersModel::HomeUsersModel(QObject *parent) : QSqlQueryModel(parent)
 {
     showOldStreetNames = false;
+
     isWindowsXP = false;
     nameCache.resize(500);
     rowsCount = -1;
     useSystemStyle = false;
+    mobileIcon.load(":/icons/mobile_icon.png");
 #ifdef Q_OS_WIN32
     isWindowsXP = QSysInfo::windowsVersion() == QSysInfo::WV_XP;
 #endif
@@ -48,6 +50,8 @@ QVariant HomeUsersModel::data(const QModelIndex &item, int role) const
         }
     }  else if (role == Qt::DisplayRole && column == kNameColumn ) {
         //QDateTime m = index(item.row(), kUpdatedColumn).data();
+        QString fullName = QSqlQueryModel::data(index(item.row(), kNameColumn)).toString();
+        QString other = index(item.row(), kOtherColumn).data().toString();
         QVariant acutes = index(item.row(), kAcutesColumn).data();
         if ( !acutes.isNull()) {
             if ( nameCache[item.row()].isEmpty() ) {
@@ -55,18 +59,48 @@ QVariant HomeUsersModel::data(const QModelIndex &item, int role) const
                 QString firstName = index(item.row(), kFirstNameColumn).data().toString();
                 QString middleName = index(item.row(), kMiddleNameColumn).data().toString();
                 Utils::restoreNormalizedStr(name, firstName, middleName,acutes.toByteArray());
-                QString res = name + " " + firstName + " " + middleName;
-                const_cast<QVector<QString>&>(nameCache)[item.row()] = res;
-                 return res;
+                fullName = name + " " + firstName + " " + middleName;
+                const_cast<QVector<QString>&>(nameCache)[item.row()] = fullName;
             } else {
-                return nameCache[item.row()];
+                fullName= nameCache[item.row()];
             }
         }
 
+        if ( !other.isEmpty() ) {
+            fullName += "(" + other + ")";
+        }
+
+        QString companyName = QSqlQueryModel::data(index(item.row(), kCompanyName)).toString();
+        QString position = QSqlQueryModel::data(index(item.row(), kSectorName)).toString();
+        if ( !position.isEmpty() ) {
+            companyName = position+" "+tr("in")+" "+companyName;
+        }
+
+        if ( !companyName.isEmpty() ) {
+            fullName += "("+companyName+")";
+        }
+
+        return fullName;
+
+    }else if (role == Qt::DisplayRole && column == HomeUsersModel::kPhoneColumn ) {
+        QModelIndex ind = index(item.row(), HomeUsersModel::kPhoneColumn);
+        int code = index(item.row(), HomeUsersModel::kPrefixColumn).data().toInt();
+        int phone = QSqlQueryModel::data(ind).toInt();
+        int phoneLength = code == 22?6:5;
+        return QString("%1").arg(phone, phoneLength, 10, QChar('0'));
+
+   } else if ( role == Qt::DisplayRole && column == kApartmentColumn ) {
+        QString apartment = QSqlQueryModel::data(index(item.row(), kApartmentColumn)).toString();
+        QString apSuffix = QSqlQueryModel::data(index(item.row(), kApSuffix)).toString();
+        if (!apSuffix.isEmpty() ) {
+            apartment += " " + apSuffix;
+        }
+        return apartment;
     }
 
     else if ( role == SortingRole ) {
         if ( column == kHouseColumn ) {
+            qDebug() << "SortingRole";
             QString house = data(index(item.row(), item.column())).toString();
             QStringList tokens = house.split("/");
             int houseNumber = tokens[0].toInt();
@@ -146,6 +180,11 @@ QVariant HomeUsersModel::data(const QModelIndex &item, int role) const
         QFontMetrics fm = treeview->viewport()->fontMetrics();
         QString text = data(item, Qt::DisplayRole).toString();
         return   QSize(fm.width(text)+3, fm.height()+6);
+    } else if ( role == Qt::DecorationRole && column == kPrefixColumn ) {
+        int op = index(item.row(), HomeUsersModel::kOperatorColumn).data().toInt();
+        if ( op == 2 ) {
+            return mobileIcon;
+        }
     }
     return QSqlQueryModel::data(item, role);
 }

@@ -4,17 +4,19 @@
 #include <QDir>
 #include <QTranslator>
 #include "Utils.h"
-
-SettingsDialog::SettingsDialog(QSettings* settings, QWidget *parent) :
+#include "AppProperties.h"
+#include "Utils.h"
+SettingsDialog::SettingsDialog(Settings* settings, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::SettingsDialog)
 {
     this->settings = settings;
     ui->setupUi(this);
     setFixedSize(size());
-    ui->showOldStreetNamesCheckbox->setChecked(settings->value("showOldStreetNames", false).toBool());
-    initialUseSystemStyle = settings->value("useSystemDefaultTheme", false).toBool();
+    ui->showOldStreetNamesCheckbox->setChecked(settings->value(Settings::ShowOldStreetNames).toBool());
+    initialUseSystemStyle = settings->value(Settings::UseSystemDefaultTheme).toBool();
     ui->useSystemDefaultTheme->setChecked(initialUseSystemStyle);
+    ui->showStreetNamesInRomanianCheckbox->setChecked(settings->value(Settings::ShowStreetNamesInRomanian).toBool());
 
     if ( !initialUseSystemStyle ) {
         foreach ( QAbstractButton* button, ui->buttonBox->buttons()) {
@@ -32,9 +34,9 @@ SettingsDialog::SettingsDialog(QSettings* settings, QWidget *parent) :
     setWindowFlags(flags);
 
 
-  QString languagesPath =  QApplication::instance()->property("languagesPath").toString();
+  QString languagesPath =  AppProperties::instance()->languagesPath();
   QDir dir(languagesPath);
-   QString language =  QApplication::instance()->property("currentLanguage").toString();
+   QString language =  AppProperties::instance()->currentLanguage();
    initialLanguage = language;
 ui->languageCombobox->addItem("English", "en");
   QStringList fileNames = dir.entryList(QStringList("z1188*.qm"));
@@ -54,6 +56,14 @@ ui->languageCombobox->addItem("English", "en");
       ui->languageCombobox->addItem(lang, locale);
   }
    ui->languageCombobox->setCurrentIndex(selectedIndex);
+
+   if ( language != "ru") {
+       ui->showStreetNamesInRomanianCheckbox->hide();
+   }
+
+   AppProperties * appProps = AppProperties::instance();
+   ui->phoneCountLabel->setText(tr("Total numbers in the database: %1").arg(appProps->totalPhoneCount()));
+
   //neashmeash@gmail.com
 }
 
@@ -64,25 +74,29 @@ SettingsDialog::~SettingsDialog()
 
 void SettingsDialog::on_SettingsDialog_accepted()
 {
-    settings->setValue("showOldStreetNames", ui->showOldStreetNamesCheckbox->isChecked());
+    settings->setValue(Settings::ShowOldStreetNames, ui->showOldStreetNamesCheckbox->isChecked());
     bool useSystemDefaultTheme = ui->useSystemDefaultTheme->isChecked();
-    settings->setValue("useSystemDefaultTheme", useSystemDefaultTheme);
-    QApplication * app = qobject_cast<QApplication*>(QApplication::instance());
+    settings->setValue(Settings::UseSystemDefaultTheme, useSystemDefaultTheme);
+    settings->setValue(Settings::ShowStreetNamesInRomanian, ui->showStreetNamesInRomanianCheckbox->isChecked());
+    AppProperties * appProps =  AppProperties::instance();
+    QApplication* app = qobject_cast<QApplication*>(QCoreApplication::instance());
     QString language = ui->languageCombobox->currentData().toString();
     if ( initialLanguage != language ) {
-        settings->setValue("language", language);
-        app->setProperty("currentLanguage", language);
-        QTranslator *translator = (QTranslator *) app->property("translator").value<void *>();
-        QString languagesPath = app->property("languagesPath").toString();
-        QString qtLanguagesPath = app->property("qtLanguagesPath").toString();
-        QTranslator *qtTranslator = (QTranslator *) app->property("qtTranslator").value<void *>();
+        settings->setValue(Settings::Language, language);
+        appProps->setCurrentLanguage(language);
+        QTranslator *translator = appProps->translator();
+        QString languagesPath = appProps->languagesPath();
+        QString qtLanguagesPath = appProps->qtLanguagesPath();
+        QTranslator *qtTranslator = appProps->qtTranslator();
         app->removeTranslator(translator);
         app->removeTranslator(qtTranslator);
         if(translator->load("z1188_" + language, languagesPath)) {
             app->installTranslator(translator);
+            appProps->setTranslator(translator);
         }
         if (qtTranslator->load("qt_" +language ,qtLanguagesPath) ) {
              app->installTranslator(qtTranslator);
+             appProps->setQtTranslator(qtTranslator);
         }
 
     }

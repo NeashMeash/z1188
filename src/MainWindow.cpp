@@ -23,17 +23,24 @@
 #include <QMovie>
 #include <QClipboard>
 #include <QFileDialog>
+#include <QtConcurrent>
 #ifdef Z1188_CURSOR_HACK
     #include "MyHeaderView.h"
 #endif
 #include "MyProxyModel.h"
 #include "Utils.h"
+#include "AppProperties.h"
+#include <QSqlDatabase>
 
-MainWindow::MainWindow(QSettings *settings, QWidget *parent) :
+
+
+
+MainWindow::MainWindow(Settings *settings, QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     failed = false;
+    disableStreetAutoCompleteUpdate = false;
     locationModel = 0;
     ui->setupUi(this );
     ui->homeUsersTable->installEventFilter(this);
@@ -51,12 +58,37 @@ MainWindow::MainWindow(QSettings *settings, QWidget *parent) :
         child->installEventFilter(this);
     }
 
-    //loaderAnimation->show();
+    QHBoxLayout*locationComboLayot = new QHBoxLayout(ui->locationCombo);
+    locationComboLayot->setMargin(0);
+    locationComboLayot->setSpacing(0);
+    locationLoader = new QLabel();
+
+    locationLoader->hide();
+    locationLoader->setMovie(loaderAnimation);
+    locationComboLayot->addWidget(locationLoader,0,Qt::AlignRight);
+    locationLoader->setMinimumSize(19,16);
+    loaderAnimation->start();
+    ui->locationCombo->setDisabled(true);
+
+    QTimer *timer = new QTimer(this);
+    timer->setSingleShot(true);
+    timer->setInterval(700);
+
+    connect(timer,&QTimer::timeout, [=]{
+        if ( !ui->locationCombo->isEnabled()) {
+            locationLoader->show();
+           // locationLoader->repaint();
+        }
+        timer->deleteLater();
+    });
+    timer->start();
+
+
     this->settings = settings;
     readSettings();
 
 
-    QString language =  QApplication::instance()->property("currentLanguage").toString();
+    QString language =  AppProperties::instance()->currentLanguage();
     if ( language == "ru" ) {
         dbLanguage = "ru";
     } else {
@@ -84,12 +116,13 @@ MainWindow::MainWindow(QSettings *settings, QWidget *parent) :
 
     initComboBoxes();
     setupButtonsCursor();
-
-
-
-
-
     ui->streetEdit->setCompleter(completer);
+
+    ui->regionCombo->addItem(tr("Chișinău")+ " (22)");
+    ui->regionCombo->setEnabled(false);
+
+
+
 
     homeUsersModel = new HomeUsersModel(ui->homeUsersTable);
     sqlproxy = new MyProxyModel(this);
@@ -100,13 +133,12 @@ MainWindow::MainWindow(QSettings *settings, QWidget *parent) :
     ui->homeUsersTable->header()->setSortIndicator(HomeUsersModel::kNameColumn, Qt::AscendingOrder ) ;
     ui->homeUsersTable->setSortingEnabled(true);
     ui->homeUsersTable->setContextMenuPolicy(Qt::CustomContextMenu);
-    //connect(ui->homeUsersTable, SIGNAL(customContextMenuRequested(const QPoint &)), this, SLOT(onCustomContextMenu(const QPoint &)));
 
     companiesModel = new CompaniesModel(ui->companiesTable);
     companiesSqlProxy = new MyProxyModel(this);
     companiesSqlProxy->setSourceModel(companiesModel);
     companiesSqlProxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
-    sqlproxy->setSortRole(CompaniesModel::SortingRole);
+    companiesSqlProxy->setSortRole(CompaniesModel::SortingRole);
 #ifdef Z1188_CURSOR_HACK
     ui->companiesTable->setHeader(new MyHeaderView(Qt::Horizontal,ui->companiesTable));
 #endif
@@ -117,8 +149,6 @@ MainWindow::MainWindow(QSettings *settings, QWidget *parent) :
     ui->companiesTable->setContextMenuPolicy(Qt::CustomContextMenu);
 
 
-
-    // ui->homeUsersTable->setC
 
     worker = new Worker(settings);
     worker->setDbLanguage(dbLanguage);
@@ -131,8 +161,6 @@ MainWindow::MainWindow(QSettings *settings, QWidget *parent) :
     workerThread.start();
 
     ui->phoneEdit->setFocus();
-    /*QShortcut *returnShortcut = new QShortcut(QKeySequence("Return"), ui->groupBox);
-    QObject::connect(returnShortcut, SIGNAL(activated()), ui->pushButton_Calculate, SLOT(click()));*/
 }
 
 MainWindow::~MainWindow()
@@ -140,11 +168,11 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::handleResults(const QSqlQuery &result,bool isCompany,const QString& errorString)
+void MainWindow::handleResults(const QSqlQuery &result, bool isCompany, const QString& errorString, bool mobile)
 {
-    QString language = QApplication::instance()->property("currentLanguage").toString();
-    bool showOldStreetNames = settings->value("showOldStreetNames", false).toBool();
-    bool useSystemStyle =  settings->value("useSystemDefaultTheme", false).toBool();
+    QString language = AppProperties::instance()->currentLanguage();
+    bool showOldStreetNames = settings->value(Settings::ShowOldStreetNames).toBool();
+    bool useSystemStyle =  settings->value(Settings::UseSystemDefaultTheme).toBool();
     if ( !isCompany ) {
         QHeaderView * header = ui->homeUsersTable->header();
         //header->show();
@@ -172,6 +200,12 @@ void MainWindow::handleResults(const QSqlQuery &result,bool isCompany,const QStr
         ui->homeUsersTable->setColumnHidden(HomeUsersModel::kFirstNameColumn, true);
         ui->homeUsersTable->setColumnHidden(HomeUsersModel::kMiddleNameColumn, true);
         ui->homeUsersTable->setColumnHidden(HomeUsersModel::kAcutesColumn, true);
+        ui->homeUsersTable->setColumnHidden(HomeUsersModel::kOperatorColumn, true);
+        ui->homeUsersTable->setColumnHidden(HomeUsersModel::kOtherColumn, true);
+        ui->homeUsersTable->setColumnHidden(HomeUsersModel::kApSuffix, true);
+        ui->homeUsersTable->setColumnHidden(HomeUsersModel::kEmployee, true);
+        ui->homeUsersTable->setColumnHidden(HomeUsersModel::kCompanyName, true);
+        ui->homeUsersTable->setColumnHidden(HomeUsersModel::kCompanyId, true);
         ui->homeUsersButton->setChecked(true);
         ui->companiesButton->setChecked(false);
          //ui->homeUsersTable->header()->setSectionResizeMode(HomeUsersModel::kNameColumn, QHeaderView::Stretch);
@@ -210,6 +244,11 @@ void MainWindow::handleResults(const QSqlQuery &result,bool isCompany,const QStr
         ui->companiesTable->setColumnHidden(CompaniesModel::kFirstNameColumn, true);
         ui->companiesTable->setColumnHidden(CompaniesModel::kMiddleNameColumn, true);
         ui->companiesTable->setColumnHidden(CompaniesModel::kAcutesColumn, true);
+        ui->companiesTable->setColumnHidden(CompaniesModel::kOperatorColumn, true);
+        ui->companiesTable->setColumnHidden(CompaniesModel::kOtherColumn, true);
+        ui->companiesTable->setColumnHidden(CompaniesModel::kApSuffix, true);
+        ui->companiesTable->setColumnHidden(CompaniesModel::kCompanyName, true);
+       ui->companiesTable->setColumnHidden(HomeUsersModel::kCompanyId, true);
 
         if ( companiesModel->rowCount() ) {
             for ( int i =0 ; i<companiesModel->columnCount(); i++) {
@@ -230,6 +269,26 @@ void MainWindow::handleResults(const QSqlQuery &result,bool isCompany,const QStr
         ui->companiesTable->header()->show();
         selectCompanies(true);
     }
+
+  /*  if ( mobile && isCompany ) {
+
+        QHeaderView * header = ui->companiesTable->header();
+
+
+        int targetWidth = 0;
+        int  columnCount = header->count();
+        for ( int i=0; i<columnCount; i++ ) {
+            targetWidth += header->sectionSize(i);
+        }
+        qDebug() << targetWidth;
+        QDesktopWidget *desktop = QApplication::desktop();
+        int screenWidth = desktop->width();
+        targetWidth = qMin(targetWidth,screenWidth-10 );
+        if ( width() < targetWidth ) {
+            resize(targetWidth, height());
+        }
+
+    }*/
     showLoaderAnimation(false);
     ui->searchButton->setEnabled(true);
     if ( !errorString.isEmpty()) {
@@ -255,8 +314,9 @@ void MainWindow::on_regionCombo_currentIndexChanged(int index)
             locationModel->clear();
         }
     }
+    //QtConcurrent::run(this, &MainWindow::updateStreetAutoComplete);
     updateStreetAutoComplete();
-}
+  }
 
 void MainWindow::on_homeUsersButton_clicked()
 {
@@ -275,6 +335,7 @@ void MainWindow::fixLocationTreeView()
     treeView->setRootIsDecorated(false);
     treeView->setColumnHidden(0, true);
     treeView->setColumnHidden(3, true);
+        treeView->setColumnWidth(1,130);
     treeView->setColumnWidth(2,20);
     QSizePolicy sp = treeView->sizePolicy();
     sp.setVerticalPolicy(QSizePolicy::MinimumExpanding);
@@ -304,18 +365,28 @@ void MainWindow::selectCompanies(bool select)
 
 void MainWindow::on_searchButton_clicked()
 {
-    bool showOldStreetNames = settings->value("showOldStreetNames", true).toBool();
+    bool showOldStreetNames = settings->value(Settings::ShowOldStreetNames).toBool();
     worker->setShowOldStreetNames(showOldStreetNames);
-    int index = ui->regionCombo->currentIndex();
-    int regionId = ui->regionCombo->model()->index(index, 3).data().toInt();
-    index = ui->locationCombo->currentIndex();
-    int locationId =  ui->locationCombo->model()->index(index, 3).data().toInt();
+
 
     QString phone = ui->phoneEdit->text().trimmed();
     phone.replace("-","");
     phone.replace("(","");
     phone.replace(")","");
     phone.replace(" ","");
+
+    if ( phone.length() == 6 ) {
+        int code = 22;
+        QModelIndexList  list = ui->regionCombo->model()->match(ui->regionCombo->model()->index(0,4),Qt::DisplayRole, code);
+        if (!list.isEmpty() ) {
+            ui->regionCombo->setCurrentIndex(list.first().row());
+        }
+    }
+
+    int index = ui->regionCombo->currentIndex();
+    int regionId = ui->regionCombo->model()->index(index, 3).data().toInt();
+    index = ui->locationCombo->currentIndex();
+    int locationId =  ui->locationCombo->model()->index(index, 3).data().toInt();
     QString name = ui->nameEdit->text().trimmed();
 
     QString lastName;
@@ -331,22 +402,16 @@ void MainWindow::on_searchButton_clicked()
     int apartment = ui->apartmentEdit->text().trimmed().toInt();
     ui->searchButton->setEnabled(false);
     bool searchCompanies = ui->companiesButton->isChecked();
-    //ui->homeUsersTable-
-    //ui->homeUsersTable->setModel(0);
-    homeUsersModel->removeRows(0,homeUsersModel->rowCount());
-    companiesModel->removeRows(0, companiesModel->rowCount());
+
+
+
+	homeUsersModel->clear();
+	companiesModel->clear();
+
     sqlproxy->removeRows(0, sqlproxy->rowCount());
     companiesSqlProxy->removeRows(0, companiesSqlProxy->rowCount());
 
-    //sqlproxy->clear();
-    //ui->homeUsersTable->setC
-    //companiesModel->clear();
-    //companiesSqlProxy->clear();
-    // ui->homeUsersTable->header()->setModel(0);
-    //  ui->companiesTable->header()->setModel(0);
-    //ui->homeUsersTable->header()->hide();
-    // ui->companiesTable->header()->hide();
-    //ui->companiesTable->setModel(0);
+
     showLoaderAnimation(true);
     emit operate(regionId, locationId, phone, name, street,houseNumber, houseBlock, apartment, searchCompanies);
 }
@@ -357,7 +422,7 @@ void MainWindow::on_settingsButton_clicked()
     if ( dlg->exec() == QDialog::Accepted ) {
         setupButtonsCursor();
 
-        QString language =  QApplication::instance()->property("currentLanguage").toString();
+        QString language =  AppProperties::instance()->currentLanguage();
 
         worker->setDbLanguage(language == "ru" ?language:"ro");
     }
@@ -373,29 +438,81 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 
 void MainWindow::initComboBoxes()
 {
-    QSqlQueryModel *regionsModel = new QBlankItemSqlQueryModel;
-    QString sql = "SELECT case when code then name_"+dbLanguage+
-            "|| '\t('||code||')' else name_"+dbLanguage +" end, name_"+dbLanguage+", case when code = 0 then null else ('('||code||')') end, id,code FROM regions order by id !=2, name_"+dbLanguage;
-    regionsModel->setQuery(sql);
-
-    ui->regionCombo->setModel(regionsModel);
-
     QTreeView *regionComboView =new QTreeView(this);
     ui->regionCombo->setView(regionComboView);
+    QSqlQueryModel *regionsModel = new QBlankItemSqlQueryModel;
 
-    regionComboView->setRootIsDecorated(false);
-    regionComboView->setColumnHidden(0,true);
-    regionComboView->setColumnHidden(3,true);
-    regionComboView->setColumnHidden(4,true);
-    regionComboView->setColumnWidth(2,30);
+    disableStreetAutoCompleteUpdate = true;
+      QFutureWatcher<void> *watcher = new QFutureWatcher<void>();
+
+    QFuture<void> future = QtConcurrent::run([=]{
+        QSqlDatabase db = QSqlDatabase::database();
+        if (!db.isOpen() ) {
+            Utils::runLater([]{
+                QMessageBox::critical(0,"z1188",QApplication::tr("Could not connect to database"));
+                QCoreApplication::instance()->quit();
+            });
+            return;
+        }
 
 
-    QSizePolicy sp = regionComboView->sizePolicy();
-    sp.setVerticalPolicy(QSizePolicy::MinimumExpanding);
-    regionComboView->setMinimumHeight(300);
-    regionComboView->setSizePolicy(sp);
-    regionComboView->header()->hide();
+        QString sql = "SELECT case when code then name_"+dbLanguage+
+                "|| '\t('||code||')' else name_"+dbLanguage +" end, name_"+dbLanguage+", case when code = 0 then null else ('('||code||')') end, id,code FROM regions order by id !=2, id!=99999, name_"+dbLanguage;
+        QSqlQuery q(sql);
 
+        regionsModel->setQuery(q);
+
+        AppProperties * appProps = AppProperties::instance();
+        if ( !appProps->totalPhoneCount() ) {
+            QSqlQuery q("SELECT count(*) from phones");
+            if ( q.next() ) {
+                appProps->setTotalPhoneCount(q.value(0).toInt());
+            }
+        }
+
+        // Magic function runLater xD
+        Utils::runLater([=] {
+            // Executing in GUI thread!!!
+            ui->regionCombo->setModel(regionsModel);
+            ui->regionCombo->setEnabled(true);
+
+            regionComboView->setRootIsDecorated(false);
+            regionComboView->setColumnHidden(0,true);
+            regionComboView->setColumnHidden(3,true);
+            regionComboView->setColumnHidden(4,true);
+            regionComboView->setColumnWidth(1,140);
+            regionComboView->setColumnWidth(2,30);
+
+
+            QSizePolicy sp = regionComboView->sizePolicy();
+            sp.setVerticalPolicy(QSizePolicy::MinimumExpanding);
+            regionComboView->setMinimumHeight(300);
+            regionComboView->setSizePolicy(sp);
+            regionComboView->header()->hide();
+
+            QModelIndexList index = regionsModel->match(regionsModel->index(0,3),Qt::DisplayRole,2);
+
+            if ( !index.isEmpty() &&  index.first().isValid() ) {
+                ui->regionCombo->setCurrentIndex( index.first().row());
+            }
+
+
+            locationLoader->hide();
+             ui->locationCombo->setDisabled(false);
+             disableStreetAutoCompleteUpdate = false;
+             updateStreetAutoComplete();
+              watcher->deleteLater();
+
+        });
+
+
+    });
+
+    connect(this, &MainWindow::destroyed, watcher, [=]{watcher->waitForFinished();});
+    /*connect(watcher, &QFutureWatcher<void>::finished,this,[=] {
+
+    }, Qt::QueuedConnection);*/
+    watcher->setFuture(future);
 
     locationModel = new QBlankItemSqlQueryModel;
     ui->locationCombo->setModel(locationModel);
@@ -404,10 +521,7 @@ void MainWindow::initComboBoxes()
     treeView->setMinimumHeight(300);
     treeView->header()->hide();
     fixLocationTreeView();
-    QModelIndexList index = regionsModel->match(regionsModel->index(0,3),Qt::DisplayRole,2);
-    if ( !index.isEmpty() &&  index.first().isValid() ) {
-        ui->regionCombo->setCurrentIndex( index.first().row());
-    }
+
 }
 
 bool MainWindow::hasFailed() {
@@ -448,7 +562,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 }
 
 void MainWindow::setupButtonsCursor() {
-    bool useSystemDefaultTheme = settings->value("useSystemDefaultTheme", false).toBool();
+    bool useSystemDefaultTheme = settings->value(Settings::UseSystemDefaultTheme).toBool();
     QCursor cursor = useSystemDefaultTheme ? Qt::ArrowCursor : Qt::PointingHandCursor;
     ui->searchButton->setCursor(cursor);
     ui->saveButton->setCursor(cursor);
@@ -471,11 +585,13 @@ void MainWindow::showOnMap(bool companies, int row, MainWindow::MapType mapType)
     QString house = treeview->model()->index(row,companies?CompaniesModel::kHouseColumn: HomeUsersModel::kHouseColumn).data().toString();
     int streetId = treeview->model()->index(row,companies?CompaniesModel::kStreetIdColumn: HomeUsersModel::kStreetIdColumn).data().toInt();
     QString streetName =  treeview->model()->index(row,companies?CompaniesModel::kStreetColumn: HomeUsersModel::kStreetColumn).data().toString();
-
+    QString streetType = treeview->model()->index(row,HomeUsersModel::kStreetTypeColumn).data().toString();
+    streetName.remove(streetType);
+    streetName = streetType + " " + streetName.trimmed();
     QString url;
     QString label = streetName;
     if ( findHouseCoordinates(streetId,house,&lat,&lon) ) {
-        label+= " "+house;
+        label+= ", "+house;
     }
 
 
@@ -578,7 +694,7 @@ QString MainWindow::getColumnValueForExport(QTreeView *treeview, int row, int co
         }
     }
     else if ( column == HomeUsersModel::kApartmentColumn ) {
-        columnValue=tr("ap.")+" "+columnValue;
+        columnValue=tr("ap.")+columnValue;
     } else if ( column == HomeUsersModel::kStreetColumn ) {
         QString streetType = treeview->model()->index(row,HomeUsersModel::kStreetTypeColumn).data().toString();
         columnValue.remove(streetType);
@@ -635,7 +751,20 @@ void MainWindow::treeviewContextMenu(bool companies, const QPoint &pos)
             contextMenu->addAction(action);
         }
 
-        action = new QAction(tr("Copy selected row")+"\tCtrl+C",contextMenu);
+        QString prefix = treeview->model()->index(index.row(), HomeUsersModel::kPrefixColumn).data().toString();
+        QString number = treeview->model()->index(index.row(), HomeUsersModel::kPhoneColumn).data().toString();
+        int op  = treeview->model()->index(index.row(), HomeUsersModel::kOperatorColumn).data().toInt();
+
+        QString phoneWithPrefix = op == 2 ? "0" + prefix + number :
+                                            (prefix.isEmpty()?number: "0" + prefix + number);
+        action = new QAction(tr("Copy \"%1\"").arg(phoneWithPrefix)+"\tCtrl+C",contextMenu);
+        connect(action, &QAction::triggered, [cellValue]{
+            QApplication::clipboard()->setText(cellValue);
+        });
+        contextMenu->addAction(action);
+
+
+        action = new QAction(tr("Copy selected row"),contextMenu);
         connect(action, &QAction::triggered, [this,row,treeview]{
             copyRowToClipboard( treeview,row);
         });
@@ -643,18 +772,29 @@ void MainWindow::treeviewContextMenu(bool companies, const QPoint &pos)
 
         if ( ok && lat && lon ) {
             contextMenu->addSeparator();
+            action = new QAction(QIcon(":/icons/point_md_icon.ico"),tr("Show on Point.md map"),contextMenu);
+            connect(action, &QAction::triggered, [this,companies,index]{ showOnMap(companies, index.row(),PointMdMap); });
+            contextMenu->addAction(action);
+
             action = new QAction(QIcon(":/icons/google_maps_icon.png"),tr("Show on Google Maps"),contextMenu);
             connect(action, &QAction::triggered, [this,companies,index]{ showOnMap(companies, index.row(),GoogleMaps); });
             contextMenu->addAction(action);
 
-            action = new QAction(QIcon(":/icons/point_md_icon.ico"),tr("Show on Point.md map"),contextMenu);
-            connect(action, &QAction::triggered, [this,companies,index]{ showOnMap(companies, index.row(),PointMdMap); });
-            contextMenu->addAction(action);
+
 
             action = new QAction(QIcon(":/icons/openstreetmap_icon.ico"),tr("Show on OpenStreetMap"),contextMenu);
             connect(action, &QAction::triggered, [this,companies,index]{ showOnMap(companies, index.row(),OpenStreetMap); });
             contextMenu->addAction(action);
         }
+
+        contextMenu->addSeparator();
+
+
+        action = new QAction(tr("Show carrier name"),contextMenu);
+        connect(action, &QAction::triggered, [=]{
+            showOperatorName(prefix.toInt(), number.toInt());
+        });
+        contextMenu->addAction(action);
 
 
 
@@ -664,33 +804,119 @@ void MainWindow::treeviewContextMenu(bool companies, const QPoint &pos)
 
 void MainWindow::updateStreetAutoComplete()
 {
-
+    if ( disableStreetAutoCompleteUpdate ) {
+        return;
+    }
     int index = ui->regionCombo->currentIndex();
     int regionId = ui->regionCombo->model()->index(index, 3).data().toInt();
     index = ui->locationCombo->currentIndex();
     int locationId =  ui->locationCombo->model()->index(index, 3).data().toInt();
-    QString sql = "SELECT DISTINCT COALESCE(streets.name_"+dbLanguage+",streets.name_ro) as name from streets  "
-                                                                      " left join locations on location_id=locations.id "
-                                                                      "where 1=1 ";
+    QString sql = "SELECT DISTINCT streets.name_ro as name,SUBSTR(streets.name_ro,1,1)='\"'"
+            " as ord from streets   left join locations on location_id=locations.id where 1=1";
 
+    QString conditions;
     if ( regionId ) {
-        sql += " and region_id = "+QString::number(regionId);
+        conditions += " and region_id = "+QString::number(regionId);
     }
     if ( locationId ) {
-        sql += " and location_id = "+QString::number(locationId);
+        conditions += " and location_id = "+QString::number(locationId);
     }
-    sql+= " order by  SUBSTR(name,1,1)='\"',name";
+
+    sql+=conditions;
+
+    if ( dbLanguage == "ru" ) {
+        sql+="  union select DISTINCT streets.name_ru as name, SUBSTR(streets.name_ru,1,1)='\"' as ord "
+             "from streets   left join locations on location_id=locations.id where 1=1" +conditions;
+    }
+    sql+= "  order by  ord,name";
+
+
     QSqlQuery q(sql);
-    q.exec();
     streetAutoCompleteModel->setQuery(q);
     //ui->streetEdit->completer()->setM
+}
+
+void MainWindow::showOperatorName(int code, int phone)
+{
+    QString provider = "Moldtelecom";
+    QSqlQuery query3("SELECT * from providers where " +
+                     (code ? "prefix="+QString::number(code) : " prefix is null"));
+    //query3.exec();
+    if ( query3.size() ) {
+        while(query3.next()){
+            int numberFrom = query3.value("from").toInt();
+            int numberTo = query3.value("to").toInt();
+            if ( phone >= numberFrom && phone <= numberTo ) {
+                provider = query3.value("name").toString();
+                break;
+            }
+
+        }
+    }
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("Carrier name"));
+    QString phoneStr = QString("%1").arg(phone, code == 22 ? 6 : 5, 10, QChar('0'));
+    QString displayPhone = (code?QString::number(code):"")+phoneStr;
+    msgBox.setTextFormat(Qt::RichText);   //this is what makes the links clickable
+    QString url = QString("http://www.portare.md/")+
+            (AppProperties::instance()->currentLanguage()=="ru"?"ru":"")
+            +"?number="+ /*+(code?QString::number(code):"")+phoneStr*/displayPhone;
+
+    QString text = tr("Phone")+": <span style='color: #45688E;'>"+displayPhone + "</span><br>"+
+            tr("Carrier")+": <b style='color: #45688E;'>"+provider+"</b><br><br><a href='"
+           +url +"' style='color: #2B587A;'>"+tr("Find out if this number was ported")+"</a>";
+
+    msgBox.setText(text);
+    QList<QLabel*> labels = msgBox.findChildren<QLabel*>();
+    QString linkOpenedText=text
+            +"<br><br>"
+            +"<b>"+tr("Number has been copied to the clipboard.")+"</b><br><br>"+
+            tr("Now the webpage \"%1\"").arg("www.portare.md")
+            +" will be opened in your web browser.<br>";
+    int dotCount = 0;
+     QTimer* timer2 = new QTimer();
+     timer2->setInterval(300);
+     connect(timer2,&QTimer::timeout, this, [&] {
+         QString s;
+         s.fill('.', ++dotCount);
+           msgBox.setText(linkOpenedText + "Opening"+s);
+     });
+
+    foreach ( QLabel* l,labels) {
+        if ( l->objectName() == "qt_msgbox_label" ) {
+            l->setOpenExternalLinks(false);
+            connect(l, &QLabel::linkActivated, this, [&] {
+                msgBox.setText(linkOpenedText);
+                QApplication::clipboard()->setText(displayPhone);
+                timer2->start();
+
+                QTimer *timer = new QTimer(this);
+                timer->setInterval(2500);
+                timer->setSingleShot(true);
+
+                connect(timer,&QTimer::timeout,this,[=] {
+                    QDesktopServices::openUrl(url);
+                    timer2->stop();
+                });
+
+                timer->start();
+            });
+            break;
+        }
+    }
+
+    msgBox.exec();
+    delete timer2;
+
 }
 
 void MainWindow::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::LanguageChange)
     {
-        QString language = QApplication::instance()->property("currentLanguage").toString();
+        qDebug() << event;
+        QString language = AppProperties::instance()->currentLanguage();
         if ( language == "ru" ) {
             dbLanguage = "ru";
         } else {
@@ -698,14 +924,17 @@ void MainWindow::changeEvent(QEvent* event)
         }
         // retranslate designer form
         ui->retranslateUi(this);
+
         initComboBoxes();
+
+        updateStreetAutoComplete();
 
         // retranslate other widgets which weren't added in designer
         //retranslate();
     }
 
     // remember to call base class implementation
-    QWidget::changeEvent(event);
+    QMainWindow::changeEvent(event);
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
@@ -717,8 +946,16 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
             QTreeView * treeview = qobject_cast<QTreeView*>(obj);
             if ( treeview ) {
                 QModelIndex currentIndex = treeview->currentIndex();
-                if ( currentIndex.isValid())
-                    copyRowToClipboard(treeview,currentIndex.row());
+                if ( currentIndex.isValid()) {
+                    QString prefix = treeview->model()->index(currentIndex.row(), HomeUsersModel::kPrefixColumn).data().toString();
+                    QString number = treeview->model()->index(currentIndex.row(), HomeUsersModel::kPhoneColumn).data().toString();
+                    int op  = treeview->model()->index(currentIndex.row(), HomeUsersModel::kOperatorColumn).data().toInt();
+
+                    QString phoneWithPrefix = op == 2 ? "0" + prefix + number :
+                                                        (prefix.isEmpty()?number: "0" + prefix + number);
+                    QApplication::clipboard()->setText(phoneWithPrefix);
+                    //copyRowToClipboard(treeview,currentIndex.row());
+                }
             }
             return true;
         } else if ( (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) && (keyEvent->modifiers() == Qt::NoModifier || keyEvent->modifiers() ==Qt::KeypadModifier) ) {
@@ -744,11 +981,10 @@ void MainWindow::on_companiesTable_customContextMenuRequested(const QPoint &pos)
 void MainWindow::on_saveButton_clicked()
 {
     QString selectedFilter;
-    QString initialDir = settings->value("savingDir",QString()).toString();
+    QString initialDir = settings->value(Settings::SavingDir).toString();
 
- // #ifdef Q_OS_WIN32
     initialDir+= "result.html";
-//#endif
+
 
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save File"),
                                                     /*"results.html"*/initialDir,
@@ -760,7 +996,7 @@ void MainWindow::on_saveButton_clicked()
     if ( fileName.isEmpty() ) {
         return ;
     }
-    settings->setValue("savingDir",QFileInfo(fileName).absoluteDir().path()+"/");
+    settings->setValue(Settings::SavingDir,QFileInfo(fileName).absoluteDir().path()+"/");
     bool companies = ui->companiesButton->isChecked();
     QTreeView *treeview = companies? ui->companiesTable : ui->homeUsersTable;
     int columnCount = treeview->model()->columnCount();
@@ -829,6 +1065,8 @@ void MainWindow::on_saveButton_clicked()
             QTextStream stream( &outFile );
             stream.setGenerateByteOrderMark(true);
             stream.setCodec("UTF-8");
+            stream << tr("Nr.")<<";"<<tr("Code")<<";"<<tr("Number")<<";"<<tr("Name")<<";"
+                   <<tr("Street")<<";"<<tr("House")<<";"<<tr("Ap.")<<";"<<tr("Location")<<";\n";
             for ( int i =0; i<rowCount; i++ ) {
 
                 for ( int j =0; j<columnCount; j++ ) {
@@ -840,7 +1078,7 @@ void MainWindow::on_saveButton_clicked()
                         cellValue = QString::number(i+1);
                     } else {
                         cellValue = treeview->model()->index(i,j).data().toString();
-                        if ( j == HomeUsersModel::kHouseColumn ) {
+                        if ( j == HomeUsersModel::kHouseColumn || j ==HomeUsersModel::kApartmentColumn  ) {
                             cellValue="=\""+cellValue+"\"";
                         }
                     }
@@ -927,6 +1165,8 @@ void MainWindow::on_phoneEdit_textEdited(const QString &str1)
             numberWithCode = str.mid(1);
         } else if ( str.startsWith("+373") ) {
             numberWithCode = str.mid(4);
+        } else if ( str.length() >6 /*&& str.left(2) != "22"*/ ) {
+            numberWithCode = str;
         }
     }
     if ( numberWithCode.startsWith("22") ) {

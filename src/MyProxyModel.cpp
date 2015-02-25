@@ -11,12 +11,12 @@ MyProxyModel::~MyProxyModel()
 
 }
 
-QVariant MyProxyModel::data(const QModelIndex &index, int role) const
+QVariant MyProxyModel::data(const QModelIndex &item, int role) const
 {
-    if ( role == Qt::DisplayRole && index.column() == 0 ) {
-        return index.row()+1;
+    if ( role == Qt::DisplayRole && item.column() == 0 ) {
+        return item.row()+1;
     }
-    return QSortFilterProxyModel::data(index, role);
+    return QSortFilterProxyModel::data(item, role);
 }
 
 bool MyProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const

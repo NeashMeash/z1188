@@ -1,0 +1,7 @@
+Deploying on Mac OS X:
+
+macdeployqt -dmg /Users/admin/Documents/z1188/build/mac/release/executable/z1188.app 
+
+Checking dependencies:
+
+otool -L  /Users/admin/Documents/z1188/build/mac/release/executable/z1188.app/Contents/MacOS/z1188

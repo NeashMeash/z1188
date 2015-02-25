@@ -41,6 +41,13 @@ QLineEdit:focus {
 QComboBox:focus {
      border-color: rgb(174,175,198);
 }
+
+QComboBox::down-arrow:disabled {
+    image: none;
+}
+
+
+
 QPushButton:flat {
     color: #45688E;
     border:none;
@@ -74,8 +81,13 @@ QComboBox {
     border: 1px solid #C3CBD4;
     combobox-popup: 0;
     padding-left:5px;
+    color: black;
 }
 
+QComboBox:disabled{
+     border: 1px solid #C3CBD4;
+     color: black;
+}
 QComboBox::down-arrow {
 
    /* padding:0;

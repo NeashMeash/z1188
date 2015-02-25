@@ -18,5 +18,6 @@
         <file>icons/uparrow.png</file>
         <file>export_template.html</file>
         <file>icons/appicon.ico</file>
+        <file>icons/mobile_icon.png</file>
     </qresource>
 </RCC>

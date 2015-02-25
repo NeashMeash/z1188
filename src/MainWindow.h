@@ -11,7 +11,10 @@
 #include "Worker.h"
 #include <QSettings>
 #include <QMovie>
+#include <QtConcurrent>
+#include <QLabel>
 #include "MyProxyModel.h"
+#include "Settings.h"
 
 namespace Ui {
 class MainWindow;
@@ -22,14 +25,14 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QSettings *settings, QWidget *parent = 0);
+    explicit MainWindow(Settings *settings, QWidget *parent = 0);
     ~MainWindow();
 
     bool hasFailed();
     enum MapType { GoogleMaps, PointMdMap, OpenStreetMap};
 
 public slots:
-    void handleResults(const QSqlQuery &result,bool isCompany,const QString& errorString);
+    void handleResults(const QSqlQuery &result,bool isCompany,const QString& errorString, bool mobile);
 private slots:
     void on_regionCombo_currentIndexChanged(int index);
 
@@ -69,11 +72,14 @@ private:
     Worker * worker;
     HomeUsersModel * homeUsersModel;
     CompaniesModel * companiesModel;
-    QSettings *settings;
+    Settings *settings;
     QMovie* loaderAnimation;
+    QLabel* locationLoader;
     MyProxyModel *sqlproxy;
     MyProxyModel *companiesSqlProxy;
     QSqlQueryModel *streetAutoCompleteModel;
+    bool disableStreetAutoCompleteUpdate;
+
     virtual void keyPressEvent(QKeyEvent *);
     void initComboBoxes();
 
@@ -90,6 +96,8 @@ private:
     void copyRowToClipboard(QTreeView* treeview, int row);
     void treeviewContextMenu(bool companies, const QPoint &pos);
     void updateStreetAutoComplete();
+    void showOperatorName(int code, int number);
+
 
 };
 

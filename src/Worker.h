@@ -4,13 +4,13 @@
 #include <QObject>
 #include <QSqlQuery>
 
-#include <QSettings>
+#include "Settings.h"
 
 class Worker : public QObject
 {
     Q_OBJECT
 public:
-    Worker(QSettings * settings);
+    Worker(Settings * settings);
     ~Worker();
     void setDbLanguage(const QString& language);
     void setShowOldStreetNames(bool);
@@ -20,11 +20,11 @@ public slots:
                  int apartment, bool searchCompanies);
 
 signals:
-    void resultReady(const QSqlQuery &result, bool isCompany, const QString& errorString);
+    void resultReady(const QSqlQuery &result, bool isCompany, const QString& errorString, bool mobiles);
 private:
     QString language;
     bool showOldStreetNames;
-    QSettings * settings;
+    Settings * settings;
 };
 
 #endif // WORKER_H

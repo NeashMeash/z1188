@@ -34,6 +34,7 @@ outline:0;
 #settingsButton:pressed{
     margin-top:1px;
 }
+
 </string>
   </property>
   <widget class="QWidget" name="centralWidget">
@@ -103,7 +104,7 @@ outline:0;
             </property>
             <property name="minimumSize">
              <size>
-              <width>180</width>
+              <width>201</width>
               <height>0</height>
              </size>
             </property>
@@ -541,16 +542,26 @@ outline:0;
      </layout>
     </item>
     <item>
-     <widget class="QTreeView" name="homeUsersTable"/>
+     <widget class="MyTreeView" name="homeUsersTable"/>
     </item>
     <item>
-     <widget class="QTreeView" name="companiesTable"/>
+     <widget class="MyTreeView" name="companiesTable"/>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_6">
       <property name="topMargin">
        <number>3</number>
       </property>
+      <item>
+       <layout class="QFormLayout" name="formLayout"/>
+      </item>
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
       <item>
        <spacer name="horizontalSpacer_6">
         <property name="orientation">
@@ -598,6 +609,13 @@ outline:0;
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>MyTreeView</class>
+   <extends>QTreeView</extends>
+   <header>MyTreeView.h</header>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="resources.qrc"/>
  </resources>
