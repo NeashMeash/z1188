@@ -23,7 +23,7 @@ mkdir -p ./z1188/usr/share/z1188/languages/qt
 cp -r ../../languages/*.qm ./z1188/usr/share/z1188/languages/
 cp -r ../../languages/qt/*.qm ./z1188/usr/share/z1188/languages/qt/
 cp ../../database/db.db ./z1188/usr/share/z1188/
-cp ../../build/linux/release/executable/z1188 ./z1188/usr/bin/
+cp ../../build/linux/${Architecture}/release/executable/z1188 ./z1188/usr/bin/
 if [ ! -f ./z1188/usr/bin/z1188 ]; then
     echo "Executable not found!"
     exit

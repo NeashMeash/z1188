@@ -3,6 +3,10 @@
 #include <QMap>
 #include <QByteArray>
 #include <QDebug>
+#include <QWidgetList>
+#include <QApplication>
+#include <QWidget>
+
 Utils::Utils()
 {
 
@@ -352,6 +356,15 @@ void Utils::restoreNormalizedStr(QString &name, QString &firstName, QString &mid
         }
         i++;
 
+    }
+}
+
+void Utils::fixMacOsFocusRect(bool enable)
+{
+    QWidgetList widgets = /*m*yTopLevelWidget->findChildren<QWidget*>();*/
+            qobject_cast<QApplication*>(QCoreApplication::instance())->allWidgets();
+    foreach(QWidget* widget, widgets){
+        widget->setAttribute( Qt::WA_MacShowFocusRect, enable);
     }
 }
 

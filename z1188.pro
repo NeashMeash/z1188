@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui sql concurrent
+QT       += core gui sql concurrent widgets
 
 win32 {
 QT       += core-private
@@ -23,11 +23,20 @@ CONFIG += c++11
 unix{
 
 }
+arch = $$QMAKE_TARGET.arch
+linux-g++:arch = $$QMAKE_HOST.arch
+linux-g++-32:arch = x86
+linux-g++-64:arch = x86_64
+contains(arch, i686) {
+arch=i386
+}
 
-
+contains(arch, x86_64) {
+arch=amd64
+}
 
 win32:OUTDIR = build/windows
-unix:OUTDIR = build/linux
+unix:OUTDIR = build/linux/$$arch
 macx:OUTDIR = build/mac
 
 debug:DESTDIR = $$OUTDIR/debug/executable
@@ -104,13 +113,13 @@ languages.path = Contents/Resources/languages
 languages_qt.files =  $$files(languages/qt/*.qm)
 languages_qt.path = Contents/Resources/languages/qt
 
-APP_DB_FILES.files = db/db.db
+APP_DB_FILES.files = database/db.db
 APP_DB_FILES.path = Contents/Resources
 QMAKE_BUNDLE_DATA += APP_DB_FILES languages languages_qt
 QMAKE_TARGET_BUNDLE_PREFIX = "neash-meash"
 }
 
-
+INCLUDEPATH += src/
 
 
 

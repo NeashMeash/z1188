@@ -183,10 +183,14 @@ void Worker::doWork( int regionId, int locationId, QString phone, const QString&
 
        if ( regionId ) {
            if ( regionId==99999 ) {
-                sql += " AND op = 2 ";
+                sql += " AND ( phones.id >= 1252479  and op = 2 ) ";
 
-           } else if ( phone.isEmpty() ){
-               sql += " AND locations.region_id=:regionId ";
+           } else if ( phone.isEmpty() || phone.length() == 5  ){
+               sql += " AND ( locations.region_id=:regionId ";
+               if ( phone.length() == 6) {
+                    sql +=  " OR phone_prefix=22 ";
+               }
+               sql += " ) ";
            }
 
        }

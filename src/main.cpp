@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
         a.setStyleSheet( styleFile.readAll() );
         styleFile.close();
 
+
     }
 
     QApplication::setEffectEnabled(Qt::UI_AnimateCombo, false);

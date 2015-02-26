@@ -112,5 +112,8 @@ void SettingsDialog::on_SettingsDialog_accepted()
             app->setStyleSheet( styleFile.readAll() );
              styleFile.close();
         }
+#ifdef Q_OS_MACX
+        Utils::fixMacOsFocusRect(useSystemDefaultTheme);
+#endif
     }
 }

@@ -3,6 +3,8 @@
 
 #include <QString>
 #include <QMetaObject>
+#include <QTimer>
+#include <QCoreApplication>
 
 class Utils
 {
@@ -18,7 +20,7 @@ public:
     template <typename Func>
     inline static void runLater(Func func) {
         QTimer *t = new QTimer();
-        t->moveToThread(qApp->thread());
+        t->moveToThread(QCoreApplication::instance()->thread());
         t->setSingleShot(true);
         QObject::connect(t, &QTimer::timeout, [=]() {
             func();
@@ -26,6 +28,7 @@ public:
         });
         QMetaObject::invokeMethod(t, "start", Qt::QueuedConnection, Q_ARG(int, 0));
     }
+    static void fixMacOsFocusRect(bool enable);
 };
 
 #endif // UTILS_H

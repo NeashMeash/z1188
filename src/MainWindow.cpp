@@ -147,8 +147,9 @@ MainWindow::MainWindow(Settings *settings, QWidget *parent) :
     ui->companiesTable->setSortingEnabled(true);
     ui->companiesTable->setRootIsDecorated(false);
     ui->companiesTable->setContextMenuPolicy(Qt::CustomContextMenu);
-
-
+#ifdef Q_OS_MACX
+    Utils::fixMacOsFocusRect(settings->value(Settings::UseSystemDefaultTheme).toBool());
+#endif
 
     worker = new Worker(settings);
     worker->setDbLanguage(dbLanguage);
@@ -757,7 +758,14 @@ void MainWindow::treeviewContextMenu(bool companies, const QPoint &pos)
 
         QString phoneWithPrefix = op == 2 ? "0" + prefix + number :
                                             (prefix.isEmpty()?number: "0" + prefix + number);
-        action = new QAction(tr("Copy \"%1\"").arg(phoneWithPrefix)+"\tCtrl+C",contextMenu);
+        action = new QAction(tr("Copy \"%1\"").arg(phoneWithPrefix)+
+                     #ifdef Q_OS_MACX
+                             "\t⌘C"
+                     #else
+                             "\tCtrl+C"
+                     #endif
+
+                             ,contextMenu);
         connect(action, &QAction::triggered, [cellValue]{
             QApplication::clipboard()->setText(cellValue);
         });
@@ -872,15 +880,15 @@ void MainWindow::showOperatorName(int code, int phone)
     QString linkOpenedText=text
             +"<br><br>"
             +"<b>"+tr("Number has been copied to the clipboard.")+"</b><br><br>"+
-            tr("Now the webpage \"%1\"").arg("www.portare.md")
-            +" will be opened in your web browser.<br>";
+            tr("Now the webpage \"%1\" will be opened in your web browser.").arg("www.portare.md")
+            +" <br>";
     int dotCount = 0;
      QTimer* timer2 = new QTimer();
      timer2->setInterval(300);
      connect(timer2,&QTimer::timeout, this, [&] {
          QString s;
          s.fill('.', ++dotCount);
-           msgBox.setText(linkOpenedText + "Opening"+s);
+           msgBox.setText(linkOpenedText + tr("Opening")+s);
      });
 
     foreach ( QLabel* l,labels) {
@@ -942,7 +950,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
 
-        if ( qobject_cast<QTreeView*>(obj) && keyEvent->key() == Qt::Key_C && keyEvent->modifiers()==Qt::ControlModifier){
+        if ( qobject_cast<QTreeView*>(obj) && keyEvent->key() == Qt::Key_C && keyEvent->modifiers()==Qt::ControlModifier  ){
             QTreeView * treeview = qobject_cast<QTreeView*>(obj);
             if ( treeview ) {
                 QModelIndex currentIndex = treeview->currentIndex();
