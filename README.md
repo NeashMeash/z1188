@@ -16,9 +16,6 @@ http://pastebin.com/qZxGiyWy
 
 При установке на Linux из архива у вас должны быть установлены библиотеки Qt5 (для Fedora 21 это пакет qt5-base)
 
-
-<a href="https://drive.google.com/file/d/0B4cy9KBf7lsMbDVCNzJKVExzYUE/view?usp=sharing">Сама база данных версии 1.1</a> (в формате sqlite3)
-
 --- Инструкция для самостоятельной сборки ---
 
 Windows:
