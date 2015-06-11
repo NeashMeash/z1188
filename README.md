@@ -8,7 +8,7 @@ Carte de telefoane din Moldova 1188 (2015)
 Содержит данные о физических и юридических лицах по состоянию на 2015 год.
 Также доступны адреса (в основном для Кишинева и его пригородов, и Бельц).
 
-Поддерживаемые операционные системы: Windows XP и выше, Linux (Ubuntu 14.10, Fedora), Mac OS X 10.7+ (тестировалось на Mountain Lion, Yosemite)
+ОС: Windows XP и выше, Linux (Ubuntu 14.10, Fedora), Mac OS X 10.7+ (тестировалось на Mountain Lion, Yosemite)
 
 Скачать готовые сборки:
 
@@ -26,6 +26,13 @@ http://www.qt.io/download-open-source/
 Также требуется установить соответствующую версию Microsoft Visual Studio (под Mingw не тестировалось, но должно работать)
 
 Откройте проект z1188.pro в QtCreator. Нажмите Сборка->Собрать проект (Ctrl+B)
+
+Либо с помощью командной строки:
+
+``` bash
+qmake CONFIG+=release
+jom
+```
 
 Ubuntu 14.04:
 
